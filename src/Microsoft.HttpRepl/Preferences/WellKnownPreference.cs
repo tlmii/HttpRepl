@@ -177,5 +177,9 @@ namespace Microsoft.HttpRepl.Preferences
         public static string UseDefaultCredentials { get; } = "httpClient.useDefaultCredentials";
 
         public static string HttpClientUserAgent { get; } = "httpClient.userAgent";
+
+        public static string EnableTelemetry { get; } = "telemetry.enabled";
+
+        public static string WasTelemetryFirstRunDisplayed { get; } = "telemetry.firstRunDisplayed";
     }
 }

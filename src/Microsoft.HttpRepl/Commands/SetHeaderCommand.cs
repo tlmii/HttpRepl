@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.HttpRepl.Resources;
 using Microsoft.HttpRepl.Suggestions;
+using Microsoft.HttpRepl.Telemetry.Events;
 using Microsoft.Repl;
 using Microsoft.Repl.Commanding;
 using Microsoft.Repl.ConsoleHandling;
@@ -36,14 +37,20 @@ namespace Microsoft.HttpRepl.Commands
 
             programState = programState ?? throw new ArgumentNullException(nameof(programState));
 
+            string headerName = parseResult.Sections[2];
+            List<string> headerValues = null;
+
             if (parseResult.Sections.Count == 3)
             {
-                programState.Headers.Remove(parseResult.Sections[2]);
+                programState.Headers.Remove(headerName);
             }
             else
             {
-                programState.Headers[parseResult.Sections[2]] = parseResult.Sections.Skip(3).ToList();
+                headerValues = parseResult.Sections.Skip(3).ToList();
+                programState.Headers[headerName] = headerValues;
             }
+
+            programState.Telemetry.LogEvent(new ExecuteSetHeaderCommandEvent(headerName, string.Join(";", headerValues)));
 
             return Task.CompletedTask;
         }

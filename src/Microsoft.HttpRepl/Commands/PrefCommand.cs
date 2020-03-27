@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.HttpRepl.Preferences;
+using Microsoft.HttpRepl.Telemetry.Events;
 using Microsoft.Repl;
 using Microsoft.Repl.Commanding;
 using Microsoft.Repl.ConsoleHandling;
@@ -165,26 +166,40 @@ namespace Microsoft.HttpRepl.Commands
             string prefName = commandInput.Arguments[1].Text;
             string prefValue = commandInput.Arguments.Count > 2 ? commandInput.Arguments[2]?.Text : null;
 
+            bool wasSuccessful = true;
             if (!_preferences.SetValue(prefName, prefValue))
             {
                 shellState.ConsoleManager.Error.WriteLine(Resources.Strings.PrefCommand_Error_Saving.SetColor(programState.ErrorColor));
+                wasSuccessful = false;
             }
+
+            if (!string.Equals(prefName, WellKnownPreference.EnableTelemetry, StringComparison.Ordinal) ||
+                !string.Equals(prefValue, )
+            programState.Telemetry.LogEvent(new ExecutePrefSetCommandEvent(prefName, wasSuccessful));
+        }
+
+        private static bool ShouldSkipTelemetry(string preferenceName, string preferenceValue)
+        {
+            return string.Equals(preferenceName, WellKnownPreference.EnableTelemetry, StringComparison.Ordinal) &&
+                   bool.TryParse(preferenceValue, out bool result) && !result;
         }
 
         private void GetSetting(IShellState shellState, HttpState programState, DefaultCommandInput<ICoreParseResult> commandInput)
         {
             string preferenceName = commandInput.Arguments.Count > 1 ? commandInput.Arguments[1]?.Text : null;
-            
+            bool wasSuccessful = true;
+
             //If there's a particular setting to get the value of
             if (!string.IsNullOrEmpty(preferenceName))
             {
                 if (_preferences.TryGetValue(preferenceName, out string value))
                 {
-                    shellState.ConsoleManager.WriteLine(string.Format(Resources.Strings.PrefCommand_Get_ConfiguredValue, value));
+                    shellState.ConsoleManager.WriteLine(string.Format(Resources.Strings.PrefCommand_Get_ConfiguredValue, value));                    
                 }
                 else
                 {
                     shellState.ConsoleManager.Error.WriteLine(string.Format(Resources.Strings.PrefCommand_Error_NoConfiguredValue, commandInput.Arguments[1].Text).SetColor(programState.ErrorColor));
+                    wasSuccessful = false;
                 }
             }
             else
@@ -194,6 +209,10 @@ namespace Microsoft.HttpRepl.Commands
                     shellState.ConsoleManager.WriteLine($"{entry.Key}={entry.Value}");
                 }
             }
+
+            string preferenceNameForTelemetry = string.IsNullOrEmpty(preferenceName) ? "*" : preferenceName;
+
+            programState.Telemetry.LogEvent(new ExecutePrefGetCommandEvent(preferenceNameForTelemetry, wasSuccessful));
 
         }
 

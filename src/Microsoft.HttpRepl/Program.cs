@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.HttpRepl.Commands;
 using Microsoft.HttpRepl.FileSystem;
 using Microsoft.HttpRepl.Preferences;
+using Microsoft.HttpRepl.Telemetry;
 using Microsoft.HttpRepl.UserProfile;
 using Microsoft.Repl;
 using Microsoft.Repl.Commanding;
@@ -29,6 +30,12 @@ namespace Microsoft.HttpRepl
             args = args ?? throw new ArgumentNullException(nameof(args));
 
             ComposeDependencies(ref consoleManager, ref preferences, out HttpState state, out Shell shell);
+
+            if (preferences.GetBoolValue(WellKnownPreference.WasTelemetryFirstRunDisplayed))
+            {
+                Reporter.Output.WriteLine("The HttpRepl tool collects usage data in order to help us improve your experience. This data is anonymous. It is colected by Microsoft and shared with no one. You can opt-out of telemetry by setting the telemetry.enabled preference to false (`pref set telemetry.enabled false`).");
+                preferences.SetValue(WellKnownPreference.WasTelemetryFirstRunDisplayed, "true");
+            }
 
             if (Console.IsOutputRedirected && !consoleManager.AllowOutputRedirection)
             {
@@ -76,6 +83,9 @@ namespace Microsoft.HttpRepl
 
                 await shell.RunAsync(source.Token).ConfigureAwait(false);
             }
+
+            state.Telemetry.Dispose();
+            state.Client.Dispose();
         }
 
         private static void ComposeDependencies(ref IConsoleManager consoleManager, ref IPreferences preferences, out HttpState state, out Shell shell)
@@ -84,7 +94,14 @@ namespace Microsoft.HttpRepl
             IFileSystem fileSystem = new RealFileSystem();
             preferences = preferences ?? new UserFolderPreferences(fileSystem, new UserProfileDirectoryProvider(), CreateDefaultPreferences());
             var httpClient = GetHttpClientWithPreferences(preferences);
-            state = new HttpState(fileSystem, preferences, httpClient);
+            if (preferences.GetBoolValue(WellKnownPreference.EnableTelemetry, defaultValue: true))
+            {
+                state = new HttpState(fileSystem, preferences, httpClient, new TelemetryClient());
+            }
+            else
+            {
+                state = new HttpState(fileSystem, preferences, httpClient, new NullTelemetryClient());
+            }
 
             var dispatcher = DefaultCommandDispatcher.Create(state.GetPrompt, state);
             dispatcher.AddCommand(new ChangeDirectoryCommand());
@@ -130,9 +147,7 @@ namespace Microsoft.HttpRepl
         {
             if (preferences.GetBoolValue(WellKnownPreference.UseDefaultCredentials))
             {
-#pragma warning disable CA2000 // Dispose objects before losing scope
                 return new HttpClient(new HttpClientHandler { UseDefaultCredentials = true });
-#pragma warning restore CA2000 // Dispose objects before losing scope
             }
 
             return new HttpClient();

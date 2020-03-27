@@ -85,6 +85,8 @@ namespace Microsoft.HttpRepl.Commands
                 }
             }
 
+            programState.Telemetry.LogEvent(new Telemetry.Events.ExecuteCommandEvent("ChangeDirectory"));
+
             return Task.CompletedTask;
         }
 

@@ -8,6 +8,7 @@ using System.Net.Http;
 using Microsoft.HttpRepl.FileSystem;
 using Microsoft.HttpRepl.OpenApi;
 using Microsoft.HttpRepl.Preferences;
+using Microsoft.HttpRepl.Telemetry;
 using Microsoft.Repl.ConsoleHandling;
 
 namespace Microsoft.HttpRepl
@@ -18,6 +19,7 @@ namespace Microsoft.HttpRepl
         private readonly IPreferences _preferences;
 
         public HttpClient Client { get; }
+        public ITelemetryClient Telemetry { get; }
 
         public AllowedColors ErrorColor => _preferences.GetColorValue(WellKnownPreference.ErrorColor, AllowedColors.BoldRed);
 
@@ -39,13 +41,16 @@ namespace Microsoft.HttpRepl
 
         public Uri SwaggerEndpoint { get; set; }
 
-        public HttpState(IFileSystem fileSystem, IPreferences preferences, HttpClient httpClient)
+        public HttpState(IFileSystem fileSystem, IPreferences preferences, HttpClient httpClient, ITelemetryClient telemetryClient = null)
         {
             preferences = preferences ?? throw new ArgumentNullException(nameof(preferences));
+
+            telemetryClient = telemetryClient ?? new NullTelemetryClient();
 
             _fileSystem = fileSystem;
             _preferences = preferences;
             Client = httpClient;
+            Telemetry = telemetryClient;
             PathSections = new Stack<string>();
             Headers = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase)
             {
