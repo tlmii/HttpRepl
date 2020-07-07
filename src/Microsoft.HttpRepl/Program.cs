@@ -3,6 +3,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.CommandLine;
+using System.CommandLine.Builder;
+using System.CommandLine.Invocation;
+using System.CommandLine.Parsing;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -14,7 +19,6 @@ using Microsoft.HttpRepl.UserProfile;
 using Microsoft.Repl;
 using Microsoft.Repl.Commanding;
 using Microsoft.Repl.ConsoleHandling;
-using Microsoft.Repl.Parsing;
 
 namespace Microsoft.HttpRepl
 {
@@ -40,44 +44,68 @@ namespace Microsoft.HttpRepl
 
             using (CancellationTokenSource source = new CancellationTokenSource())
             {
-                shell.ShellState.ConsoleManager.AddBreakHandler(() => source.Cancel());
-                if (args.Length > 0)
+                var runCommand = new Command("run", "Execute commands in script file")
                 {
-                    if (string.Equals(args[0], "--help", StringComparison.OrdinalIgnoreCase) || string.Equals(args[0], "-h", StringComparison.OrdinalIgnoreCase))
-                    {
-                        shell.ShellState.ConsoleManager.WriteLine(Resources.Strings.Help_Usage);
-                        shell.ShellState.ConsoleManager.WriteLine("  dotnet httprepl [<BASE_ADDRESS>] [options]");
-                        shell.ShellState.ConsoleManager.WriteLine();
-                        shell.ShellState.ConsoleManager.WriteLine(Resources.Strings.Help_Arguments);
-                        shell.ShellState.ConsoleManager.WriteLine(string.Format(Resources.Strings.Help_BaseAddress, "<BASE_ADDRESS>"));
-                        shell.ShellState.ConsoleManager.WriteLine();
-                        shell.ShellState.ConsoleManager.WriteLine(Resources.Strings.Help_Options);
-                        shell.ShellState.ConsoleManager.WriteLine(string.Format(Resources.Strings.Help_Help, "-h|--help"));
+                    new Argument<FileInfo>("fileName", "Script file name")
+                };
 
-                        shell.ShellState.ConsoleManager.WriteLine();
-                        shell.ShellState.ConsoleManager.WriteLine(Resources.Strings.Help_REPLCommands);
-                        new HelpCommand(preferences).CoreGetHelp(shell.ShellState, (ICommandDispatcher<HttpState, ICoreParseResult>)shell.ShellState.CommandDispatcher, state);
-                        return;
-                    }
+                runCommand.Handler = CommandHandler.Create<FileInfo>(async (fileName) => await HandleRunCommand(shell, fileName));
 
-                    // allow running a script file directly.
-                    if (string.Equals(args[0], "run", StringComparison.OrdinalIgnoreCase))
-                    {
-                        shell.ShellState.CommandDispatcher.OnReady(shell.ShellState);
-                        shell.ShellState.InputManager.SetInput(shell.ShellState, string.Join(' ', args));
-                        await shell.ShellState.CommandDispatcher.ExecuteCommandAsync(shell.ShellState, CancellationToken.None).ConfigureAwait(false);
-                        return;
-                    }
+                var rootCommand = new RootCommand()
+                {
+                    runCommand,
+                    new Argument<string>("rootAddress", "Root address to use for the connect command") { Arity = ArgumentArity.ZeroOrOne, IsHidden = true },
+                    new Option<string>(new[] { "--base", "-b" }, "Base address to use for the connect command") { IsHidden = true },
+                    new Option<string>(new[] { "--openapi", "-o" }, "OpenAPI Description address to use for the connect command") { IsHidden = true }
+                };
 
-                    string combinedArgs = string.Join(' ', args);
+                rootCommand.Handler = CommandHandler.Create<string, string, string>(async (rootAddress, @base, openApi) =>
+                {
+                    await HandleConnectCommand(shell, source, rootAddress, @base, openApi);
+                });
 
-                    shell.ShellState.CommandDispatcher.OnReady(shell.ShellState);
-                    shell.ShellState.InputManager.SetInput(shell.ShellState, $"connect {combinedArgs}");
-                    await shell.ShellState.CommandDispatcher.ExecuteCommandAsync(shell.ShellState, CancellationToken.None).ConfigureAwait(false);
-                }
+                shell.ShellState.ConsoleManager.AddBreakHandler(() => source.Cancel());
 
-                await shell.RunAsync(source.Token).ConfigureAwait(false);
+                var commandLineBuilder = new CommandLineBuilder(rootCommand);
+                await commandLineBuilder.UseDefaults()
+                                        .UseHelpBuilder(context => new CustomHelpBuilder(context.Console, shell, preferences, state))
+                                        .Build()
+                                        .InvokeAsync(args);
             }
+        }
+
+        private async Task HandleRunCommand(Shell shell, FileInfo fileInfo)
+        {
+            shell.ShellState.CommandDispatcher.OnReady(shell.ShellState);
+            shell.ShellState.InputManager.SetInput(shell.ShellState, string.Join(' ', new[] { "run", fileInfo.FullName }));
+            await shell.ShellState.CommandDispatcher.ExecuteCommandAsync(shell.ShellState, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private async Task HandleConnectCommand(Shell shell, CancellationTokenSource source, string rootAddress, string baseAddress, string openApiAddress)
+        {
+            List<string> connectArgs = new List<string>();
+            if (!string.IsNullOrWhiteSpace(rootAddress))
+            {
+                connectArgs.Add(rootAddress);
+            }
+            if (!string.IsNullOrWhiteSpace(baseAddress))
+            {
+                connectArgs.Add("--base");
+                connectArgs.Add(baseAddress);
+            }
+            if (!string.IsNullOrWhiteSpace(openApiAddress))
+            {
+                connectArgs.Add("--openapi");
+                connectArgs.Add(openApiAddress);
+            }
+
+            string combinedArgs = string.Join(' ', connectArgs);
+
+            shell.ShellState.CommandDispatcher.OnReady(shell.ShellState);
+            shell.ShellState.InputManager.SetInput(shell.ShellState, $"connect {combinedArgs}");
+            await shell.ShellState.CommandDispatcher.ExecuteCommandAsync(shell.ShellState, CancellationToken.None).ConfigureAwait(false);
+
+            await shell.RunAsync(source.Token).ConfigureAwait(false);
         }
 
         private static void ComposeDependencies(ref IConsoleManager consoleManager, ref IPreferences preferences, out HttpState state, out Shell shell)
