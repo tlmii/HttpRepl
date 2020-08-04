@@ -133,6 +133,15 @@ namespace Microsoft.HttpRepl.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Base adddress to use for the connect command.
+        /// </summary>
+        internal static string ConnectCommand_BaseOption_Description {
+            get {
+                return ResourceManager.GetString("ConnectCommand_BaseOption_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Configures the directory structure and base address of the api server.
         /// </summary>
         internal static string ConnectCommand_Description {
@@ -219,6 +228,24 @@ namespace Microsoft.HttpRepl.Resources {
         internal static string ConnectCommand_HelpDetails_Line3 {
             get {
                 return ResourceManager.GetString("ConnectCommand_HelpDetails_Line3", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to OpenAPI Description address to use for the connect command.
+        /// </summary>
+        internal static string ConnectCommand_OpenApiOption_Description {
+            get {
+                return ResourceManager.GetString("ConnectCommand_OpenApiOption_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Root address to use for the connect command.
+        /// </summary>
+        internal static string ConnectCommand_RootAddressArgument_Description {
+            get {
+                return ResourceManager.GetString("ConnectCommand_RootAddressArgument_Description", resourceCulture);
             }
         }
         
@@ -624,6 +651,15 @@ namespace Microsoft.HttpRepl.Resources {
         internal static string RunCommand_CouldNotFindScriptFile {
             get {
                 return ResourceManager.GetString("RunCommand_CouldNotFindScriptFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Script file name.
+        /// </summary>
+        internal static string RunCommand_FileNameArgument_Description {
+            get {
+                return ResourceManager.GetString("RunCommand_FileNameArgument_Description", resourceCulture);
             }
         }
         

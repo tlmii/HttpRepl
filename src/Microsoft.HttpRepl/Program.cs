@@ -44,9 +44,9 @@ namespace Microsoft.HttpRepl
 
             using (CancellationTokenSource source = new CancellationTokenSource())
             {
-                var runCommand = new Command("run", "Execute commands in script file")
+                var runCommand = new Command("run", Resources.Strings.RunCommand_HelpSummary)
                 {
-                    new Argument<FileInfo>("fileName", "Script file name")
+                    new Argument<FileInfo>("fileName", Resources.Strings.RunCommand_FileNameArgument_Description)
                 };
 
                 runCommand.Handler = CommandHandler.Create<FileInfo>(async (fileName) => await HandleRunCommand(shell, fileName));
@@ -54,14 +54,14 @@ namespace Microsoft.HttpRepl
                 var rootCommand = new RootCommand()
                 {
                     runCommand,
-                    new Argument<string>("rootAddress", "Root address to use for the connect command") { Arity = ArgumentArity.ZeroOrOne, IsHidden = true },
-                    new Option<string>(new[] { "--base", "-b" }, "Base address to use for the connect command") { IsHidden = true },
-                    new Option<string>(new[] { "--openapi", "-o" }, "OpenAPI Description address to use for the connect command") { IsHidden = true }
+                    new Argument<string>("rootAddress", Resources.Strings.ConnectCommand_RootAddressArgument_Description) { Arity = ArgumentArity.ZeroOrOne, IsHidden = true },
+                    new Option<string>(new[] { "--base", "-b" }, Resources.Strings.ConnectCommand_BaseOption_Description) { IsHidden = true },
+                    new Option<string>(new[] { "--openapi", "-o" }, Resources.Strings.ConnectCommand_OpenApiOption_Description) { IsHidden = true }
                 };
 
                 rootCommand.Handler = CommandHandler.Create<string, string, string>(async (rootAddress, @base, openApi) =>
                 {
-                    await HandleConnectCommand(shell, source, rootAddress, @base, openApi);
+                    await HandleDefaultCommand(shell, source, rootAddress, @base, openApi);
                 });
 
                 shell.ShellState.ConsoleManager.AddBreakHandler(() => source.Cancel());
@@ -81,8 +81,12 @@ namespace Microsoft.HttpRepl
             await shell.ShellState.CommandDispatcher.ExecuteCommandAsync(shell.ShellState, CancellationToken.None).ConfigureAwait(false);
         }
 
-        private async Task HandleConnectCommand(Shell shell, CancellationTokenSource source, string rootAddress, string baseAddress, string openApiAddress)
+        private async Task HandleDefaultCommand(Shell shell, CancellationTokenSource source, string rootAddress, string baseAddress, string openApiAddress)
         {
+            // If they exist, convert the Connect command arguments from their
+            // well-understood form back to strings to pass to the internal parser
+            // Hopefully this can be simplified a lot by the full System.CommandLine
+            // work in the future.
             List<string> connectArgs = new List<string>();
             if (!string.IsNullOrWhiteSpace(rootAddress))
             {
@@ -99,11 +103,14 @@ namespace Microsoft.HttpRepl
                 connectArgs.Add(openApiAddress);
             }
 
-            string combinedArgs = string.Join(' ', connectArgs);
+            if (connectArgs.Count > 0)
+            {
+                string combinedArgs = string.Join(' ', connectArgs);
 
-            shell.ShellState.CommandDispatcher.OnReady(shell.ShellState);
-            shell.ShellState.InputManager.SetInput(shell.ShellState, $"connect {combinedArgs}");
-            await shell.ShellState.CommandDispatcher.ExecuteCommandAsync(shell.ShellState, CancellationToken.None).ConfigureAwait(false);
+                shell.ShellState.CommandDispatcher.OnReady(shell.ShellState);
+                shell.ShellState.InputManager.SetInput(shell.ShellState, $"connect {combinedArgs}");
+                await shell.ShellState.CommandDispatcher.ExecuteCommandAsync(shell.ShellState, CancellationToken.None).ConfigureAwait(false);
+            }
 
             await shell.RunAsync(source.Token).ConfigureAwait(false);
         }

@@ -386,4 +386,16 @@ When +history option is specified, commands specified in the text file will be a
     <value>The default editor must be configured using the command `pref set {0} "{{commandLine}}"`.</value>
     <comment>{0} is the name of the default editor preference</comment>
   </data>
+  <data name="ConnectCommand_BaseOption_Description" xml:space="preserve">
+    <value>Base adddress to use for the connect command</value>
+  </data>
+  <data name="ConnectCommand_OpenApiOption_Description" xml:space="preserve">
+    <value>OpenAPI Description address to use for the connect command</value>
+  </data>
+  <data name="ConnectCommand_RootAddressArgument_Description" xml:space="preserve">
+    <value>Root address to use for the connect command</value>
+  </data>
+  <data name="RunCommand_FileNameArgument_Description" xml:space="preserve">
+    <value>Script file name</value>
+  </data>
 </root>
