@@ -24,11 +24,17 @@ namespace Microsoft.HttpRepl
         //          will result in https://localhost/openapi.json being tested.
         private static readonly string[] OpenApiDescriptionSearchPaths = new[] {
             "swagger.json",
+            "swagger.yaml",
             "/swagger.json",
+            "/swagger.yaml",
             "swagger/v1/swagger.json",
+            "swagger/v1/swagger.yaml",
             "/swagger/v1/swagger.json",
+            "/swagger/v1/swagger.yaml",
             "openapi.json",
+            "openapi.yaml",
             "/openapi.json",
+            "/openapi.yaml"
         };
 
         private readonly IPreferences _preferences;
@@ -64,8 +70,18 @@ namespace Microsoft.HttpRepl
 
             foreach (Uri baseUriToCheck in baseUrisToCheck)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
                 foreach (string swaggerSearchPath in swaggerSearchPaths)
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
                     if (Uri.TryCreate(baseUriToCheck, swaggerSearchPath, out Uri swaggerUri) && !checkedUris.Contains(swaggerUri))
                     {
                         var result = await TryGetSwaggerDocAsync(client, swaggerUri, useVerboseOutput, cancellationToken);
@@ -79,8 +95,6 @@ namespace Microsoft.HttpRepl
                     }
                 }
             }
-
-            Console.WriteLine(Resources.Strings.ConnectCommand_Status_NoSwagger);
         }
 
         public async Task<TryResult<string>> GetSwaggerDocAsync(HttpClient client, Uri uri, bool useVerboseOutput, CancellationToken cancellationToken)
@@ -112,8 +126,9 @@ namespace Microsoft.HttpRepl
             {
                 return await GetSwaggerDocAsync(client, uri, useVerboseOutput, cancellationToken);
             }
-            catch
+            catch (Exception e)
             {
+                Console.WriteLine(e.Message);
                 return TryResult<string>.Failed();
             }
         }
