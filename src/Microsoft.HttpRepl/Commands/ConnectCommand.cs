@@ -19,6 +19,7 @@ namespace Microsoft.HttpRepl.Commands
     {
         private const string BaseAddressOption = nameof(BaseAddressOption);
         private const string SwaggerAddressOption = nameof(SwaggerAddressOption);
+        private const string VerboseOption = nameof(VerboseOption);
         private const string Name = "connect";
 
         private readonly IPreferences _preferences;
@@ -42,6 +43,11 @@ namespace Microsoft.HttpRepl.Commands
                                                                                                                                    maximumOccurrences: 1,
                                                                                                                                    forms: new[] { "--openapi", "-o",
                                                                                                                                                   "--swagger", "-s" }))
+                                                                                        .WithOption(new CommandOptionSpecification(id: VerboseOption,
+                                                                                                                                   requiresValue: false,
+                                                                                                                                   minimumOccurrences: 0,
+                                                                                                                                   maximumOccurrences: 1,
+                                                                                                                                   forms: new[] { "--verbose", "-v" }))
                                                                                         .Finish();
 
         public override string GetHelpSummary(IShellState shellState, HttpState programState)
@@ -55,7 +61,7 @@ namespace Microsoft.HttpRepl.Commands
             {
                 var helpText = new StringBuilder();
                 helpText.Append(Resources.Strings.Usage.Bold());
-                helpText.AppendLine("connect [rootAddress] [--base baseAddress] [--openapi openApiDescriptionAddress]");
+                helpText.AppendLine("connect [rootAddress] [--base baseAddress] [--openapi openApiDescriptionAddress] [--verbose]");
                 helpText.AppendLine();
                 helpText.AppendLine(Resources.Strings.ConnectCommand_HelpDetails_Line1);
                 helpText.AppendLine();
@@ -77,6 +83,7 @@ namespace Microsoft.HttpRepl.Commands
             string rootAddress = commandInput.Arguments.SingleOrDefault()?.Text?.EnsureTrailingSlash();
             string baseAddress = GetBaseAddressFromCommand(commandInput)?.EnsureTrailingSlash();
             string swaggerAddress = GetSwaggerAddressFromCommand(commandInput);
+            bool useVerboseOutput = HasOption(commandInput, VerboseOption);
 
             ApiConnection connectionInfo = GetConnectionInfo(shellState, programState, rootAddress, baseAddress, swaggerAddress, _preferences);
 
@@ -218,6 +225,17 @@ namespace Microsoft.HttpRepl.Commands
         private static string GetSwaggerAddressFromCommand(DefaultCommandInput<ICoreParseResult> commandInput)
         {
             return GetOptionValueFromCommand(commandInput, SwaggerAddressOption);
+        }
+
+        private static bool HasOption(DefaultCommandInput<ICoreParseResult> commandInput, string optionId) 
+        {
+            if (commandInput.Options.TryGetValue(optionId, out IReadOnlyList<InputElement> inputElements) &&
+                inputElements.Count > 0)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private static string GetOptionValueFromCommand(DefaultCommandInput<ICoreParseResult> commandInput, string optionId)

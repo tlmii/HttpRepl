@@ -48,7 +48,7 @@ namespace Microsoft.HttpRepl
             _preferences = preferences;
         }
 
-        public async Task FindSwaggerDoc(HttpClient client, IEnumerable<string> swaggerSearchPaths, CancellationToken cancellationToken)
+        public async Task FindSwaggerDoc(HttpClient client, IEnumerable<string> swaggerSearchPaths, bool useVerboseOutput, CancellationToken cancellationToken)
         {
             ApiDefinitionReader reader = new ApiDefinitionReader();
             HashSet<Uri> checkedUris = new HashSet<Uri>();
@@ -68,43 +68,53 @@ namespace Microsoft.HttpRepl
                 {
                     if (Uri.TryCreate(baseUriToCheck, swaggerSearchPath, out Uri swaggerUri) && !checkedUris.Contains(swaggerUri))
                     {
-                        var result = await TryGetSwaggerDocAsync(client, swaggerUri, cancellationToken);
-                        if (result.Success && reader.CanHandle(result.Document))
+                        var result = await TryGetSwaggerDocAsync(client, swaggerUri, useVerboseOutput, cancellationToken);
+                        if (result.Success && reader.CanHandle(result.Output))
                         {
                             SwaggerUri = swaggerUri;
-                            SwaggerDocument = result.Document;
+                            SwaggerDocument = result.Output;
                             return;
                         }
                         checkedUris.Add(swaggerUri);
                     }
                 }
             }
+
+            Console.WriteLine(Resources.Strings.ConnectCommand_Status_NoSwagger);
         }
 
-        public async Task<string> GetSwaggerDocAsync(HttpClient client, Uri uri, CancellationToken cancellationToken)
+        public async Task<TryResult<string>> GetSwaggerDocAsync(HttpClient client, Uri uri, bool useVerboseOutput, CancellationToken cancellationToken)
         {
-            var resp = await client.GetAsync(uri, cancellationToken).ConfigureAwait(false);
+            Console.Write($"Checking {uri}... ");
+            var response = await client.GetAsync(uri, cancellationToken).ConfigureAwait(false);
             if (cancellationToken.IsCancellationRequested)
             {
-                return null;
+                return TryResult<string>.Failed();
             }
 
-            resp.EnsureSuccessStatusCode();
-            string responseString = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Succeeded");
+                string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-            return responseString;
+                return TryResult<string>.Succeeded(responseString);
+            }
+            else
+            {
+                Console.WriteLine($"{(int)response.StatusCode} {response.StatusCode}");
+                return TryResult<string>.Failed();
+            }
         }
 
-        public async Task<(bool Success, string Document)> TryGetSwaggerDocAsync(HttpClient client, Uri uri, CancellationToken cancellationToken)
+        public async Task<TryResult<string>> TryGetSwaggerDocAsync(HttpClient client, Uri uri, bool useVerboseOutput, CancellationToken cancellationToken)
         {
             try
             {
-                string document = await GetSwaggerDocAsync(client, uri, cancellationToken);
-                return (true, document);
+                return await GetSwaggerDocAsync(client, uri, useVerboseOutput, cancellationToken);
             }
             catch
             {
-                return (false, null);
+                return TryResult<string>.Failed();
             }
         }
 
@@ -120,17 +130,24 @@ namespace Microsoft.HttpRepl
 
         public async Task SetupHttpState(HttpState httpState, bool performAutoDetect, CancellationToken cancellationToken)
         {
+            await SetupHttpState(httpState, performAutoDetect, useVerboseOutput: false, cancellationToken);
+        }
+
+        public async Task SetupHttpState(HttpState httpState, bool performAutoDetect, bool useVerboseOutput, CancellationToken cancellationToken)
+        {
             if (HasSwaggerUri)
             {
-                var result = await TryGetSwaggerDocAsync(httpState.Client, SwaggerUri, cancellationToken);
+                var result = await TryGetSwaggerDocAsync(httpState.Client, SwaggerUri, useVerboseOutput, cancellationToken);
                 if (result.Success)
                 {
-                    SwaggerDocument = result.Document;
+                    SwaggerDocument = result.Output;
                 }
             }
             else if (performAutoDetect)
             {
-                await FindSwaggerDoc(httpState.Client, GetSwaggerSearchPaths(), cancellationToken);
+                Console.WriteLine();
+                Console.WriteLine("Attempting to discover OpenAPI Description");
+                await FindSwaggerDoc(httpState.Client, GetSwaggerSearchPaths(), useVerboseOutput, cancellationToken);
             }
 
             if (HasSwaggerDocument)
